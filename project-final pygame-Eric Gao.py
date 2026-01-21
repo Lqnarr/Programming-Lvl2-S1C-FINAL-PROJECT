@@ -10,7 +10,6 @@ WHITE = (255, 255, 255)
 GREY = (20, 20, 20)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 
 size = (1001, 701)
@@ -22,6 +21,8 @@ width = 25
 cols = int(size[0] / width)
 rows = int(size[1] / width)
 
+# Load the images in and size them
+
 player_image = py.image.load("catphoto.png")
 player_image = py.transform.scale(player_image, (width - 4, width - 4))
 
@@ -31,6 +32,8 @@ goal_image = py.transform.scale(goal_image, (width - 4, width - 4))
 explosion_image = py.image.load("explosion.png")
 explosion_image = py.transform.scale(explosion_image, (width * 5, width * 5))
 
+# Maze generation initialization
+
 
 class Cell:
     def __init__(self, x, y):
@@ -39,17 +42,14 @@ class Cell:
         self.y = y * width
 
         self.visited = False
-
         self.walls = [True, True, True, True]
-
         self.neighbors = []
 
+        # No neighbor at first
         self.top = 0
         self.right = 0
         self.bottom = 0
         self.left = 0
-
-        self.next_cell = 0
 
     # Drawing out the walls for the maze
 
@@ -88,7 +88,11 @@ class Cell:
         if self.walls[3]:
             py.draw.line(screen, BLACK, (self.x, (self.y + width)), (self.x, self.y), 1)
 
+    # Check the neighbors
+
     def checkNeighbors(self):
+        # Check and save the grids, make sure not on edge of screen
+
         if int(self.y / width) - 1 >= 0:
             self.top = grid[int(self.y / width) - 1][int(self.x / width)]
         if int(self.x / width) + 1 <= cols - 1:
@@ -97,6 +101,8 @@ class Cell:
             self.bottom = grid[int(self.y / width) + 1][int(self.x / width)]
         if int(self.x / width) - 1 >= 0:
             self.left = grid[int(self.y / width)][int(self.x / width) - 1]
+
+        # Add unvisited neighbor to the list
 
         if self.top != 0:
             if self.top.visited == False:
@@ -111,11 +117,16 @@ class Cell:
             if self.left.visited == False:
                 self.neighbors.append(self.left)
 
+        # Return if any unvisited neighbor exist or just end the check
+
         if len(self.neighbors) > 0:
-            self.next_cell = self.neighbors[random.randrange(0, len(self.neighbors))]
-            return self.next_cell
+            return self.neighbors[random.randrange(0, len(self.neighbors))]
         else:
             return False
+
+
+# Removes the walls between the two cells
+# Randomly goes a direction for the path carver and goes to unvisited neighbor until all paths has been completed
 
 
 def removeWalls(current_cell, next_cell):
@@ -134,6 +145,8 @@ def removeWalls(current_cell, next_cell):
         current_cell.walls[0] = False
         next_cell.walls[2] = False
 
+
+# Grid creation to fill it with cells
 
 grid = []
 for y in range(rows):
@@ -154,15 +167,15 @@ player_y = 0
 end_x = cols - 1
 end_y = rows - 1
 
-# Timer - countdown from 120 seconds
+# Timer set to 120 countdown
 start_time = py.time.get_ticks()
-countdown_duration = 120  # seconds
+countdown_duration = 120
 time_remaining = countdown_duration
 game_won = False
 game_lost = False
-loss_reason = ""  # Track why the player lost
+loss_reason = ""  # Empty string for now, add reason later
 
-# Explosion mechanics
+# Explosion variables
 explosion_active = False
 explosion_x = 0
 explosion_y = 0
@@ -171,9 +184,9 @@ explosion_duration = 2000
 last_explosion_spawn = py.time.get_ticks()
 explosion_interval = 2000
 
-# Movement delay
+# Change movement speed so its not too fast
 last_move_time = 0
-move_delay = 150  # milliseconds between moves
+move_delay = 150
 
 while True:
     next_cell = current_cell.checkNeighbors()
@@ -191,14 +204,15 @@ while True:
     else:
         break  # Maze generation complete
 
-# Main display loop
-done = False
-while not done:
+# Main display loop, keep the game running until pressed quit
+endgame = False
+while not endgame:
     for event in py.event.get():
         if event.type == py.QUIT:
-            done = True
+            endgame = True
 
-        # Check for restart key (only when game has ended)
+        # Check for restart key only when game has ended
+
         if event.type == py.KEYDOWN:
             if event.key == py.K_r and (game_won or game_lost):
                 # Reset game state
@@ -214,7 +228,7 @@ while not done:
                 explosion_active = False
                 last_explosion_spawn = py.time.get_ticks()
 
-                # Regenerate maze
+                # Regenerate maze if restarted
                 grid = []
                 for y in range(rows):
                     grid.append([])
@@ -252,13 +266,11 @@ while not done:
             time_remaining = 0
             loss_reason = "TIMER RUN OUT"
 
-        # Handle explosion spawning
         current_time = py.time.get_ticks()
 
-        # Spawn new explosion every 15 seconds
+        # Spawn new explosion every 2 seconds
         if current_time - last_explosion_spawn >= explosion_interval:
             explosion_active = True
-            # Random position ensuring it fits within grid (5x5 tiles)
             explosion_x = random.randint(0, cols - 5)
             explosion_y = random.randint(0, rows - 5)
             explosion_start_time = current_time
@@ -282,7 +294,6 @@ while not done:
                 time.sleep(1)
                 game_lost = True
                 loss_reason = "YOU GOT HIT BY AN AIR STRIKE"
-                # Don't set explosion_active to False - keep it visible
 
         if current_time - last_move_time > move_delay:
             keys = py.key.get_pressed()
@@ -321,49 +332,47 @@ while not done:
     # Draw the ending point (using fish image)
     screen.blit(goal_image, (end_x * width + 2, end_y * width + 2))
 
-    # Draw explosion if active (modified to show on loss screen if hit by air strike)
+    # Draw explosion
     if explosion_active and not game_won:
         screen.blit(explosion_image, (explosion_x * width, explosion_y * width))
 
-    # Draw the player (using image)
+    # Draw the player (image)
     screen.blit(player_image, (player_x * width + 2, player_y * width + 2))
 
     # Check if player reached the end
     if player_x == end_x and player_y == end_y and not game_won and not game_lost:
         game_won = True
 
-    # Display timer during gameplay
+    # The timer on screen
     if not game_won and not game_lost:
         font_timer = py.font.Font(None, 48)
         timer_text = font_timer.render(f"Time: {int(time_remaining)}s", True, BLACK)
         screen.blit(timer_text, (10, 10))
 
-    # Display win screen
+    # Winning screen
     if game_won:
-        font = py.font.Font(None, 74)
-        text = font.render("You Win :)", True, GREEN)
+        font_b = py.font.Font(None, 74)
+        text = font_b.render("You Win :)", True, GREEN)
         screen.blit(text, (size[0] // 2 - 120, size[1] // 2 - 100))
 
-        font_small = py.font.Font(None, 36)
-        time_text = font_small.render(
-            f"Time Left: {int(time_remaining)} seconds", True, BLACK
-        )
+        font_s = py.font.Font(None, 36)
+        time_text = font_s.render(f"Time Left: {time_remaining} seconds", True, BLACK)
         screen.blit(time_text, (size[0] // 2 - 150, size[1] // 2 - 20))
 
-        restart_text = font_small.render("Press R to Restart", True, BLACK)
+        restart_text = font_s.render("Press R to Restart", True, BLACK)
         screen.blit(restart_text, (size[0] // 2 - 120, size[1] // 2 + 40))
 
-    # Display lose screen
+    # Losing screen for different reasons
     if game_lost:
-        font = py.font.Font(None, 74)
-        text = font.render("YOU LOSE", True, RED)
+        font_b = py.font.Font(None, 74)
+        text = font_b.render("YOU LOSE", True, RED)
         screen.blit(text, (size[0] // 2 - 150, size[1] // 2 - 100))
 
-        font_small = py.font.Font(None, 36)
-        time_text = font_small.render(loss_reason, True, RED)
+        font_s = py.font.Font(None, 36)
+        time_text = font_s.render(loss_reason, True, RED)
         screen.blit(time_text, (size[0] // 2 - 180, size[1] // 2 - 20))
 
-        restart_text = font_small.render("Press R to Restart", True, RED)
+        restart_text = font_s.render("Press R to Restart", True, RED)
         screen.blit(restart_text, (size[0] // 2 - 120, size[1] // 2 + 40))
 
     py.display.flip()
